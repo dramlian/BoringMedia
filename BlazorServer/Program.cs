@@ -1,11 +1,11 @@
-using BlazorServer.Data;
 using Microsoft.AspNetCore.ResponseCompression;
 using BlazorServer.Hubs;
 using BlazorServer.Data.Helpers;
-using Microsoft.AspNetCore.Authentication;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddScoped<CookiesManager>();
 // Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
@@ -15,8 +15,8 @@ builder.Services.AddResponseCompression(opts =>
         new[] { "application/ocetet-steam" });
 });
 builder.Services.AddSingleton<LoginManager>();
-builder.Services.AddScoped<LoginService>();
 builder.Services.AddScoped<LoginSession>();
+
 
 var app = builder.Build();
 
@@ -37,5 +37,6 @@ app.UseRouting();
 app.MapBlazorHub();
 app.MapHub<ChatHub>("/chathub");
 app.MapFallbackToPage("/_Host");
+
 
 app.Run();

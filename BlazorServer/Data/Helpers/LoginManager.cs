@@ -4,24 +4,12 @@ namespace BlazorServer.Data.Helpers;
 
 public class LoginManager
 {
-public List<User> _users = new List<User> { new User("a","a"), new User("b", "b") };
-//public User? currentUser { get; set; }
+    public List<User> _users { get; set; }
 
     public LoginManager()
     {
-       // _users = new List<User> { new User("a","a"), new User("b", "b") };
+        _users= new List<User> { new User("a", "a"), new User("b", "b") };
     }
-
-    //public bool Login(string username, string password)
-    //{
-    //    var user = _users.FirstOrDefault(u => u.username.Equals(username) && u.password.Equals(password));
-    //    if (user != null)
-    //    {
-    //        currentUser = user;
-    //        return true;
-    //    }
-    //    return false;
-    //}
 
     public bool MapUserToConnection(string connectionId,string? userName)
     {
@@ -49,11 +37,6 @@ public List<User> _users = new List<User> { new User("a","a"), new User("b", "b"
             return user.connectionId;
         }
     }
-
-    //public void Logout()
-    //{
-    //    currentUser = null;
-    //}
     
     public void Register(string username, string password)
     {
