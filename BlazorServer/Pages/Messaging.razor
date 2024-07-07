@@ -1,0 +1,95 @@
+﻿@page "/chat"
+@using BlazorServer.Data.Helpers
+@using Microsoft.AspNetCore.SignalR.Client
+@inject LoginManager manager
+@inject NavigationManager NavManager
+@inject LoginSession loginSession
+@* @implements IAsyncDisposable *@
+
+@if (loginSession?.currentUser?.username is null)
+{
+ <h1> You are not logged in</h1>   
+}else{
+
+    <div class="form-group">
+        <label>
+            User: @(loginSession?.currentUser?.username)
+        </label>
+    </div>
+
+    <div class="form-group">
+        <label>
+            RecipientName:<input @bind="recipientName" />
+        </label>
+    </div>
+
+    <div class="form-group">
+        <label>
+            Message:<input @bind="messageInput" />
+        </label>
+    </div>
+
+    <button @onclick="Send" disabled="@(IsConnected==false)">Send broadcast</button>
+    <button @onclick="SendToUser" disabled="@(IsConnected==false)">Send to a user</button>
+
+    <hr/>
+
+    <ul>
+        @foreach(string message in messages)
+        {
+            <li>@message</li>
+        }
+    </ul>
+}
+@code {
+    private HubConnection? hubConnection;
+    private List<string> messages = new();
+    private string? messageInput;
+    private string? recipientName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+                     .WithUrl(NavManager.ToAbsoluteUri("/chatHub")) //setup connection
+                     .WithAutomaticReconnect()
+                     .Build(); 
+
+        hubConnection.On<string, string>("ReceiveMessage", (user, message) => //listener for receive
+        {
+            var encodedMsg = $"{user}: {message}";
+            messages.Add(encodedMsg);
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+        manager.MapUserToConnection(await hubConnection.InvokeAsync<string>("GetConnectionId"),
+        loginSession?.currentUser?.username);
+    }
+
+    private async Task Send() //sending message to the hub
+    {
+        if(hubConnection is not null)
+        {
+            await hubConnection.SendAsync("SendMessage", loginSession?.currentUser?.username, messageInput);
+        }
+    }
+
+    private async Task SendToUser()
+    {
+        if (hubConnection is not null && recipientName is not null)
+        {
+            await hubConnection.SendAsync("SendMessageToUser", manager.GetConnectionId(recipientName),
+            loginSession?.currentUser?.username, messageInput);
+        }
+    }
+
+    public bool IsConnected => hubConnection?.State == HubConnectionState.Connected;
+
+    public async ValueTask DisposeAsync() // TODO do something like on close or something
+    {
+        if(hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}
