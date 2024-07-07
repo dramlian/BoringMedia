@@ -1,0 +1,69 @@
+﻿@page "/"
+@using BlazorServer.Data.Helpers
+@inject LoginManager manager
+@inject NavigationManager NavigationManager
+@inject LoginService AuthenticationService
+@inject LoginSession loginSession;
+
+
+<div class="form-group">
+    <label>
+        User:<input @bind="userInput" />
+    </label>
+</div>
+
+<div class="form-group">
+    <label>
+        Password:<input @bind="passwordInput" />
+    </label>
+</div>
+
+<button @onclick="Login">Login</button>
+<button @onclick="Register">Register</button>
+
+@if (!string.IsNullOrEmpty(loginMessage))
+{
+    <div class="alert alert-info">
+        @loginMessage
+    </div>
+}
+
+@code {
+    private string? userInput;
+    private string? passwordInput;
+    private string? loginMessage;
+
+    private void Login()
+    {
+        if (userInput is not null && passwordInput is not null)
+        {
+            if (loginSession.Login(userInput, passwordInput))
+            {
+                NavigationManager.NavigateTo("/chat"); // Redirect to chat page
+                AuthenticationService.Login();
+            }
+            else
+            {
+                loginMessage = "Login failed. Please check your credentials.";
+            }
+            CleanUp();
+        }
+    }
+
+    private void Register()
+    {
+        if (userInput is not null && passwordInput is not null)
+        {
+            manager.Register(userInput, passwordInput);
+            CleanUp();
+        }
+    }
+
+    private void CleanUp()
+    {
+        userInput = null;
+        passwordInput = null;
+    }
+
+}
+
