@@ -4,7 +4,7 @@
 @inject LoginManager manager
 @inject NavigationManager NavManager
 @inject LoginSession loginSession
-@* @implements IAsyncDisposable *@
+@inject CookiesManager cookiesManager
 
 @if (loginSession?.currentUser?.username is null)
 {
@@ -47,23 +47,36 @@
     private string? messageInput;
     private string? recipientName;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        hubConnection = new HubConnectionBuilder()
-                     .WithUrl(NavManager.ToAbsoluteUri("/chatHub")) //setup connection
-                     .WithAutomaticReconnect()
-                     .Build(); 
+        if(firstRender)
+        {     
+            var session = await cookiesManager.GetCookie<LoginSession>("boring-media-cookie");
+            if (session is not null)
+            {
+                loginSession.currentUser = session.currentUser;
+                loginSession.IsUserLoggedIn = session.IsUserLoggedIn;
+            }
 
-        hubConnection.On<string, string>("ReceiveMessage", (user, message) => //listener for receive
-        {
-            var encodedMsg = $"{user}: {message}";
-            messages.Add(encodedMsg);
-            InvokeAsync(StateHasChanged);
-        });
+            hubConnection = new HubConnectionBuilder()
+                         .WithUrl(NavManager.ToAbsoluteUri("/chatHub")) //setup connection
+                         .WithAutomaticReconnect()
+                         .Build(); 
 
-        await hubConnection.StartAsync();
-        manager.MapUserToConnection(await hubConnection.InvokeAsync<string>("GetConnectionId"),
-        loginSession?.currentUser?.username);
+            hubConnection.On<string, string>("ReceiveMessage", (user, message) => //listener for receive
+            {
+                var encodedMsg = $"{user}: {message}";
+                messages.Add(encodedMsg);
+                InvokeAsync(StateHasChanged);
+            });
+
+            await hubConnection.StartAsync();
+            manager.MapUserToConnection(await hubConnection.InvokeAsync<string>("GetConnectionId"),
+            loginSession?.currentUser?.username);
+
+            loginSession?.IvokeMenuUpdate();
+            StateHasChanged();
+        }
     }
 
     private async Task Send() //sending message to the hub
