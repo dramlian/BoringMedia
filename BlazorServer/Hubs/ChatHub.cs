@@ -10,9 +10,10 @@ public class ChatHub : Hub
         return Clients.All.SendAsync("ReceiveMessage", user, message);
     }
 
-    public async Task SendMessageToUser(string recipientUserId, string senderUserName, string message)
+    public async Task SendMessageToUser(Message message)
     {
-        await Clients.Client(recipientUserId).SendAsync("ReceiveMessage", senderUserName, message);
+        await Clients.Client(message.recipientUserId).SendAsync("ReceiveMessage", message);
+        await Clients.Client(message.senderUserId).SendAsync("ReceiveMessage", message);
     }
 
     public string GetConnectionId()

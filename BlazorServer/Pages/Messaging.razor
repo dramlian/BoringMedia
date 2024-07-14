@@ -1,51 +1,75 @@
 ﻿@page "/chat"
 @using BlazorServer.Data.Helpers
+@using BlazorServer.Data.Models
 @using Microsoft.AspNetCore.SignalR.Client
 @inject LoginManager manager
 @inject NavigationManager NavManager
 @inject LoginSession loginSession
 @inject CookiesManager cookiesManager
 
-@if (loginSession?.currentUser?.username is null)
+
+@if (_isLoading)
 {
- <h1> You are not logged in</h1>   
-}else{
+    <h1>Loading...</h1>
+}
+else if (loginSession?.currentUser?.username is null)
+{
 
-    <div class="form-group">
-        <label>
-            User: @(loginSession?.currentUser?.username)
-        </label>
+    <h1> You are not logged in</h1>    
+}
+else
+{
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Left Column: Friend List -->
+            <div class="col-md-4">
+                <div class="friend-list">
+                    <h3>Friends</h3>
+                    <ul class="list-group">
+                        @foreach (var user in manager.GetAllUsers())
+                        {
+                            <li class="list-group-item @(user.username.Equals(recipient?.username) ? "active" : "")" @onclick="() => RecipientSelected(user)">
+                                @user.username
+                            </li>
+                        }                        
+                    </ul>
+                </div>
+            </div>
+            <!-- Right Column: Chat Box -->
+            <div class="col-md-8">
+                <div class="chat-box">
+                    <h3>Chat with @recipient?.username</h3>
+
+                    <ul>
+                        @foreach (var message in GetFilteredMessages())
+                        {
+                            <li>@message.message</li>
+                        }
+                    </ul>
+
+                    <div id="chat-messages">
+                        <!-- Chat messages will appear here -->
+                    </div>
+                    <div class="input-group mt-3">
+                        <textarea class="form-control" placeholder="Type your message" @bind="messageInput"></textarea>
+                        <div class="input-group-append">
+                         @*    <button class="btn btn-primary">Send</button> *@
+                            <button @onclick="SendToUser" disabled="@(IsConnected==false)">Send to a user</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div class="form-group">
-        <label>
-            RecipientName:<input @bind="recipientName" />
-        </label>
-    </div>
-
-    <div class="form-group">
-        <label>
-            Message:<input @bind="messageInput" />
-        </label>
-    </div>
-
-    <button @onclick="Send" disabled="@(IsConnected==false)">Send broadcast</button>
-    <button @onclick="SendToUser" disabled="@(IsConnected==false)">Send to a user</button>
-
-    <hr/>
-
-    <ul>
-        @foreach(string message in messages)
-        {
-            <li>@message</li>
-        }
-    </ul>
 }
 @code {
     private HubConnection? hubConnection;
-    private List<string> messages = new();
+    private List<Message> messages = new();
     private string? messageInput;
-    private string? recipientName;
+    // private string? recipientName;
+    private bool _isLoading = true;
+
+    private User? recipient;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -63,10 +87,9 @@
                          .WithAutomaticReconnect()
                          .Build(); 
 
-            hubConnection.On<string, string>("ReceiveMessage", (user, message) => //listener for receive
+            hubConnection.On<Message>("ReceiveMessage", (message) => //listener for receive
             {
-                var encodedMsg = $"{user}: {message}";
-                messages.Add(encodedMsg);
+                messages.Add(message);
                 InvokeAsync(StateHasChanged);
             });
 
@@ -75,24 +98,39 @@
             loginSession?.currentUser?.username);
 
             loginSession?.IvokeMenuUpdate();
+            _isLoading = false;
+            RecipientSelected(manager.GetAllUsers().First());
             StateHasChanged();
         }
     }
 
-    private async Task Send() //sending message to the hub
+    private IEnumerable<Message> GetFilteredMessages()
     {
-        if(hubConnection is not null)
+        if (recipient is null || loginSession?.currentUser is null)
         {
-            await hubConnection.SendAsync("SendMessage", loginSession?.currentUser?.username, messageInput);
+            return Enumerable.Empty<Message>();
         }
+
+        return messages.Where(x =>
+            (x.senderUserName.Equals(recipient.username) && x.recipientName.Equals(loginSession.currentUser.username)) ||
+            (x.recipientName.Equals(recipient.username) && x.senderUserName.Equals(loginSession.currentUser.username))
+        );
     }
 
     private async Task SendToUser()
     {
-        if (hubConnection is not null && recipientName is not null)
+        if (recipient is null || loginSession?.currentUser is null) return;
+        var recipientId = manager.GetConnectionId(recipient?.username);
+        var currentId = manager.GetConnectionId(loginSession?.currentUser?.username);
+        var recipientName= recipient?.username;
+        var senderName = loginSession?.currentUser.username;
+
+        if (recipientId is not null && currentId is not null && messageInput is not null
+            && recipientName is not null && senderName is not null && hubConnection is not null)
         {
-            await hubConnection.SendAsync("SendMessageToUser", manager.GetConnectionId(recipientName),
-            loginSession?.currentUser?.username, messageInput);
+            var message = new Message(recipientId, currentId, recipientName, senderName, messageInput);
+
+            await hubConnection.SendAsync("SendMessageToUser", message);        
         }
     }
 
@@ -104,5 +142,11 @@
         {
             await hubConnection.DisposeAsync();
         }
+    }
+
+    private void RecipientSelected(User selectedUser)
+    {
+        recipient= selectedUser;
+        StateHasChanged();    
     }
 }
