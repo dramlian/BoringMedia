@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.ResponseCompression;
 using BlazorServer.Hubs;
 using BlazorServer.Data.Helpers;
+using Microsoft.EntityFrameworkCore;
+using BlazorServer.Data.Database;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +18,10 @@ builder.Services.AddResponseCompression(opts =>
 });
 builder.Services.AddSingleton<LoginManager>();
 builder.Services.AddScoped<LoginSession>();
+
+var connectionString = "Host=localhost;Database=BoringMediaMessages;Username=postgres;Password=root";
+builder.Services.AddDbContext<MessagesContext>(options =>
+    options.UseNpgsql(connectionString));
 
 
 var app = builder.Build();
