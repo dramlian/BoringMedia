@@ -1,4 +1,5 @@
 ﻿@page "/chat"
+@using BlazorServer.Data.Database
 @using BlazorServer.Data.Helpers
 @using BlazorServer.Data.Models
 @using Microsoft.AspNetCore.SignalR.Client
@@ -6,7 +7,7 @@
 @inject NavigationManager NavManager
 @inject LoginSession loginSession
 @inject CookiesManager cookiesManager
-
+@inject MessagesContext DbContext
 
 @if (_isLoading)
 {
@@ -38,23 +39,25 @@ else
             <!-- Right Column: Chat Box -->
             <div class="col-md-8">
                 <div class="chat-box">
-                    <h3>Chat with @recipient?.username</h3>
-
-                    <ul>
-                        @foreach (var message in GetFilteredMessages())
-                        {
-                            <li>@message.message</li>
-                        }
-                    </ul>
-
-                    <div id="chat-messages">
-                        <!-- Chat messages will appear here -->
+                    <div class="container mt-5">
+                        <div class="card">
+                            <div class="card-header">
+                                Chat with @recipient?.username
+                            </div>
+                            <div class="card-body scrollable-list">
+                                <ul class="list-group">
+                                    @foreach (var message in GetFilteredMessages())
+                                    {
+                                        <li class="list-group-item" >@message.message</li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                     <div class="input-group mt-3">
                         <textarea class="form-control" placeholder="Type your message" @bind="messageInput"></textarea>
                         <div class="input-group-append">
-                         @*    <button class="btn btn-primary">Send</button> *@
-                            <button @onclick="SendToUser" disabled="@(IsConnected==false)">Send to a user</button>
+                            <button class="btn-primary" @onclick="SendToUser" disabled="@(IsConnected==false)">Send to a user</button>
                         </div>
                     </div>
                 </div>
@@ -64,9 +67,8 @@ else
 }
 @code {
     private HubConnection? hubConnection;
-    private List<Message> messages = new();
+    private List<Message>? messages;
     private string? messageInput;
-    // private string? recipientName;
     private bool _isLoading = true;
 
     private User? recipient;
@@ -75,6 +77,8 @@ else
     {
         if(firstRender)
         {     
+            messages = DbContext.UserMessages.ToList() ?? new List<Message>(); 
+            //Todo get messages from db not all by once, take 10 last messages from each user
             var session = await cookiesManager.GetCookie<LoginSession>("boring-media-cookie");
             if (session is not null)
             {
@@ -111,26 +115,34 @@ else
             return Enumerable.Empty<Message>();
         }
 
-        return messages.Where(x =>
+        return messages?.Where(x =>
             (x.senderUserName.Equals(recipient.username) && x.recipientName.Equals(loginSession.currentUser.username)) ||
             (x.recipientName.Equals(recipient.username) && x.senderUserName.Equals(loginSession.currentUser.username))
-        );
+        ) ?? Enumerable.Empty<Message>();
     }
 
     private async Task SendToUser()
     {
-        if (recipient is null || loginSession?.currentUser is null) return;
         var recipientId = manager.GetConnectionId(recipient?.username);
         var currentId = manager.GetConnectionId(loginSession?.currentUser?.username);
-        var recipientName= recipient?.username;
-        var senderName = loginSession?.currentUser.username;
+        var recipientName = recipient?.username;
+        var senderName = loginSession?.currentUser?.username;
 
-        if (recipientId is not null && currentId is not null && messageInput is not null
-            && recipientName is not null && senderName is not null && hubConnection is not null)
+        if (messageInput is null || recipientName is null || senderName is null){ return; }
+
+        var message = new Message(recipientId, currentId, recipientName, senderName, messageInput);
+        DbContext.UserMessages.Add(message);
+        await DbContext.SaveChangesAsync();
+
+        if (recipientId is null || currentId is null || hubConnection is null)
         {
-            var message = new Message(recipientId, currentId, recipientName, senderName, messageInput);
-
-            await hubConnection.SendAsync("SendMessageToUser", message);        
+            messages?.Add(message); //if the user is not online, just show the message locally after being saved to db
+            StateHasChanged();
+            return;
+        }
+        else
+        {
+            await hubConnection.SendAsync("SendMessageToUser", message);
         }
     }
 
