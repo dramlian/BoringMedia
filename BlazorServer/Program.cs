@@ -16,13 +16,15 @@ builder.Services.AddResponseCompression(opts =>
     opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
         new[] { "application/ocetet-steam" });
 });
-builder.Services.AddSingleton<LoginManager>();
+//builder.Services.AddSingleton<LoginManager>();
+builder.Services.AddSingleton<UserConnectionMapper>();
 builder.Services.AddScoped<LoginSession>();
 
-var connectionString = "Host=localhost;Database=BoringMediaMessages;Username=postgres;Password=root";
 builder.Services.AddDbContext<MessagesContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql("Host=localhost;Database=BoringMediaMessages;Username=postgres;Password=root"));
 
+builder.Services.AddDbContext<UsersContext>(options =>
+    options.UseNpgsql("Host=localhost;Database=BoringMediaUsers;Username=postgres;Password=root"));
 
 var app = builder.Build();
 
