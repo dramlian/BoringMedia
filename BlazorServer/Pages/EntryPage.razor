@@ -77,7 +77,8 @@ else
 
     private async Task Logout()
     {
-        loginSession.Logout();
+        mapper.RemoveUser(loginSession?.currentUser?.username);
+        loginSession?.Logout();
         await cookiesManager.DeleteCookie("boring-media-cookie");
     }
 
