@@ -1,4 +1,6 @@
-﻿@inherits LayoutComponentBase
+﻿@using BlazorServer.Data.Helpers
+@inherits LayoutComponentBase
+@inject LoginSession loginSession
 
 <PageTitle>BlazorServer</PageTitle>
 
@@ -9,11 +11,24 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
+            @if (loginSession?.currentUser?.username is not null)
+            {
+                <p> Welcome @loginSession.currentUser.username!</p>
+            }
         </div>
-
         <article class="content px-4">
             @Body
         </article>
     </main>
 </div>
+
+@code {
+
+    protected override void OnInitialized()
+    {
+        loginSession.OnLoginStatusChanged += NotifyStateChanged;
+    }
+
+    private void NotifyStateChanged() => InvokeAsync(StateHasChanged);
+
+}

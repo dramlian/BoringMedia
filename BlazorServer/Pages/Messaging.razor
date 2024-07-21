@@ -3,7 +3,7 @@
 @using BlazorServer.Data.Helpers
 @using BlazorServer.Data.Models
 @using Microsoft.AspNetCore.SignalR.Client
-@inject LoginManager manager
+@inject UserConnectionMapper mapper
 @inject NavigationManager NavManager
 @inject LoginSession loginSession
 @inject CookiesManager cookiesManager
@@ -27,7 +27,7 @@ else
                 <div class="friend-list">
                     <h3>Friends</h3>
                     <ul class="list-group">
-                        @foreach (var user in manager.GetAllUsers())
+                        @foreach (var user in loginSession.GetAllUsers())
                         {
                             <li class="list-group-item @(user.username.Equals(recipient?.username) ? "active" : "")" @onclick="() => RecipientSelected(user)">
                                 @user.username
@@ -85,6 +85,7 @@ else
                 loginSession.currentUser = session.currentUser;
                 loginSession.IsUserLoggedIn = session.IsUserLoggedIn;
             }
+            
 
             hubConnection = new HubConnectionBuilder()
                          .WithUrl(NavManager.ToAbsoluteUri("/chatHub")) //setup connection
@@ -98,12 +99,12 @@ else
             });
 
             await hubConnection.StartAsync();
-            manager.MapUserToConnection(await hubConnection.InvokeAsync<string>("GetConnectionId"),
-            loginSession?.currentUser?.username);
+            mapper.MapUserToConnection(await hubConnection.InvokeAsync<string>("GetConnectionId"),
+            loginSession?.currentUser);
 
             loginSession?.IvokeMenuUpdate();
             _isLoading = false;
-            RecipientSelected(manager.GetAllUsers().First());
+            RecipientSelected(loginSession.GetAllUsers().First());
             StateHasChanged();
         }
     }
@@ -123,8 +124,8 @@ else
 
     private async Task SendToUser()
     {
-        var recipientId = manager.GetConnectionId(recipient?.username);
-        var currentId = manager.GetConnectionId(loginSession?.currentUser?.username);
+        var recipientId = mapper.GetConnectionId(recipient?.username);
+        var currentId = mapper.GetConnectionId(loginSession?.currentUser?.username);
         var recipientName = recipient?.username;
         var senderName = loginSession?.currentUser?.username;
 

@@ -1,6 +1,6 @@
 ﻿@page "/"
 @using BlazorServer.Data.Helpers
-@inject LoginManager manager
+@inject UserConnectionMapper mapper
 @inject NavigationManager NavigationManager
 @inject LoginSession loginSession;
 @inject CookiesManager cookiesManager;
@@ -30,17 +30,17 @@ else
 }
 
 
-@if (!string.IsNullOrEmpty(loginMessage))
+@if (!string.IsNullOrEmpty(entryPageMessage))
 {
     <div class="alert alert-info">
-        @loginMessage
+        @entryPageMessage
     </div>
 }
 
 @code {
     private string? userInput;
     private string? passwordInput;
-    private string? loginMessage;
+    private string? entryPageMessage;
 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -62,14 +62,14 @@ else
     {
         if (userInput is not null && passwordInput is not null)
         {                   
-            if (loginSession.Login(userInput, passwordInput,manager))
+            if (loginSession.Login(userInput, passwordInput, mapper))
             {
-               await cookiesManager.SetCookie<LoginSession>(loginSession, "boring-media-cookie");                  
-               NavigationManager.NavigateTo("/chat"); // Redirect to chat page
+                await cookiesManager.SetCookie<LoginSession>(loginSession, "boring-media-cookie");                  
+                NavigationManager.NavigateTo("/chat"); // Redirect to chat page
             }
             else
             {
-                loginMessage = "Login failed. Please check your credentials.";
+                entryPageMessage = "Login failed. Please check your credentials.";
             }
             CleanUp();
         }
@@ -85,8 +85,15 @@ else
     {
         if (userInput is not null && passwordInput is not null)
         {
-            manager.Register(userInput, passwordInput);
-            CleanUp();
+            if (!loginSession.DoesUserExist(userInput))
+            {
+                loginSession.Register(userInput, passwordInput);
+                CleanUp();
+            }
+            else
+            {
+                entryPageMessage = "The username is already taken";
+            }
         }
     }
 
