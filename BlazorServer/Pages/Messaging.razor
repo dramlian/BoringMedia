@@ -30,7 +30,16 @@ else
                         @foreach (var user in loginSession.GetAllUsers())
                         {
                             <li class="list-group-item @(user.username.Equals(recipient?.username) ? "active" : "")" @onclick="() => RecipientSelected(user)">
-                                @user.username
+                                @if (String.IsNullOrEmpty(mapper.GetConnectionId(user.username)))
+                                {
+                                    <p>
+                                        @user.username
+                                    </p>
+                                }
+                                else
+                                {
+                                    <p>@user.username <span class="badge badge-success">Online</span></p>
+                                }
                             </li>
                         }                        
                     </ul>
